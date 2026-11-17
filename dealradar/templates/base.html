@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}DealRadar{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <a class="brand" href="{{ url_for('index') }}"><span class="brand-dot"></span>DealRadar</a>
+    <nav class="nav">
+      <a href="{{ url_for('index') }}" class="{{ 'on' if request.endpoint == 'index' }}">핫딜</a>
+      <a href="{{ url_for('watches') }}" class="{{ 'on' if request.endpoint and request.endpoint.startswith('watch') }}">관심상품</a>
+      <a href="{{ url_for('alerts') }}" class="{{ 'on' if request.endpoint == 'alerts' }}">알림<span id="unread" class="badge {{ '' if unread_count else 'hide' }}">{{ unread_count }}</span></a>
+      <a href="{{ url_for('settings') }}" class="{{ 'on' if request.endpoint == 'settings' }}">설정</a>
+    </nav>
+    <form method="post" action="{{ url_for('crawl_now') }}" class="crawl-form">
+      <span id="busy" class="busy {{ '' if sched.running_job else 'hide' }}">{{ sched.running_job or '' }}</span>
+      <button class="btn btn-sm" type="submit">지금 수집</button>
+    </form>
+  </div>
+</header>
+
+<main class="wrap">
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% for cat, m in msgs %}
+      <div class="flash {{ 'flash-error' if cat == 'error' }}">{{ m }}</div>
+    {% endfor %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</main>
+
+<script>
+  // 30초마다 알림 개수 / 수집 상태 갱신
+  (function () {
+    function poll() {
+      fetch("{{ url_for('api_status') }}").then(function (r) { return r.json(); }).then(function (d) {
+        var u = document.getElementById("unread");
+        u.textContent = d.unread; u.classList.toggle("hide", !d.unread);
+        var b = document.getElementById("busy");
+        b.textContent = d.busy || ""; b.classList.toggle("hide", !d.busy);
+      }).catch(function () {});
+    }
+    setInterval(poll, 30000);
+  })();
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

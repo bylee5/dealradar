@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="filters">
+  <form method="get" class="search-row">
+    <input type="hidden" name="cat" value="{{ f.cat }}">
+    <input type="hidden" name="sort" value="{{ f.sort }}">
+    <input class="input grow" type="search" name="q" value="{{ f.q }}" placeholder="상품명 검색 (예: 기저귀, 요넥스)">
+    <select class="input" name="source" onchange="this.form.submit()">
+      <option value="">전체 사이트</option>
+      {% for s in sources %}<option value="{{ s.key }}" {{ 'selected' if f.source == s.key }}>{{ s.name }}</option>{% endfor %}
+    </select>
+    <label class="check"><input type="checkbox" name="surge" value="1" {{ 'checked' if f.surge }} onchange="this.form.submit()"> 급할인만</label>
+    <label class="check"><input type="checkbox" name="sold" value="1" {{ 'checked' if f.sold }} onchange="this.form.submit()"> 종료 포함</label>
+    <button class="btn" type="submit">검색</button>
+  </form>
+
+  <div class="chips">
+    <a class="chip {{ 'on' if not f.cat }}" href="{{ qs(cat='', page='') }}">전체</a>
+    {% for c in categories %}
+      <a class="chip {{ 'on' if f.cat == c }}" href="{{ qs(cat=c) }}">{{ c }}<small>{{ cat_counts.get(c, 0) }}</small></a>
+    {% endfor %}
+  </div>
+
+  <div class="toolbar">
+    <span class="muted">{{ "{:,}".format(total) }}건 · 최근 24시간 급할인 <b class="hot">{{ surge_count }}</b>건</span>
+    <span class="sorts">
+      <a class="{{ 'on' if f.sort == 'new' }}" href="{{ qs(sort='new') }}">최신순</a>
+      <a class="{{ 'on' if f.sort == 'hot' }}" href="{{ qs(sort='hot') }}">핫한순</a>
+      <a class="{{ 'on' if f.sort == 'price' }}" href="{{ qs(sort='price') }}">낮은가격순</a>
+    </span>
+  </div>
+</section>
+
+{% if not deals %}
+  <div class="empty">
+    <p>표시할 딜이 없습니다.</p>
+    <p class="muted">처음 실행했다면 상단의 <b>지금 수집</b>을 누르고 잠시 기다려 주세요.</p>
+  </div>
+{% endif %}
+
+<section class="deal-list">
+  {% for d in deals %}
+  <article class="deal {{ 'surge' if d.is_surge }} {{ 'sold' if d.sold_out }}">
+    <a class="thumb" href="{{ d.url }}" target="_blank" rel="noopener noreferrer">
+      {% if d.thumbnail %}<img src="{{ d.thumbnail }}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}
+      <span class="thumb-fallback">{{ d.category }}</span>
+    </a>
+    <div class="deal-body">
+      <div class="deal-meta">
+        <span class="tag src-{{ d.source }}">{{ d.source | source_name }}</span>
+        <span class="tag cat">{{ d.category }}</span>
+        {% if d.is_surge %}<span class="tag surge-tag" title="{{ d.surge_reason }}">급할인 · {{ d.surge_reason }}</span>{% endif %}
+        {% if d.multi_source and d.multi_source > 1 and not d.is_surge %}<span class="tag multi">{{ d.multi_source }}곳</span>{% endif %}
+        {% if d.sold_out %}<span class="tag ended">종료</span>{% endif %}
+      </div>
+      <a class="deal-title" href="{{ d.url }}" target="_blank" rel="noopener noreferrer">{{ d.title }}</a>
+      <div class="deal-foot">
+        {% if d.price %}<b class="price">{{ d.price | won }}</b>{% elif d.price_text %}<b class="price">{{ d.price_text }}</b>{% endif %}
+        {% if d.ref_price and d.price and d.ref_price > d.price %}<s class="muted" title="이전에 올라온 비슷한 딜의 가격">{{ d.ref_price | won }}</s>{% endif %}
+        {% if d.shipping %}<span class="muted">· {{ d.shipping }}</span>{% endif %}
+        <span class="spacer"></span>
+        <span class="muted small">
+          {% if d.recommends %}👍{{ d.recommends }} {% endif %}{% if d.comments %}💬{{ d.comments }} {% endif %}{{ d.posted_at | ago }}
+        </span>
+        <a class="watch-link" href="{{ url_for('watches', prefill=d.title) }}" title="비슷한 딜이 올라오면 알림">+감시</a>
+      </div>
+    </div>
+  </article>
+  {% endfor %}
+</section>
+
+{% if pages > 1 %}
+<nav class="pager">
+  {% if page > 1 %}<a href="{{ qs(page=page - 1) }}">‹ 이전</a>{% endif %}
+  <span>{{ page }} / {{ pages }}</span>
+  {% if page < pages %}<a href="{{ qs(page=page + 1) }}">다음 ›</a>{% endif %}
+</nav>
+{% endif %}
+{% endblock %}

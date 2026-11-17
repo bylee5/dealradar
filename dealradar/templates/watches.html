@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}관심상품 · DealRadar{% endblock %}
+{% block content %}
+<h1 class="page-title">관심상품 감시</h1>
+
+<section class="card">
+  <div class="tabs">
+    <a href="{{ url_for('watches', tab='keyword') }}" class="{{ 'on' if tab != 'url' }}">키워드로 핫딜 감시</a>
+    <a href="{{ url_for('watches', tab='url') }}" class="{{ 'on' if tab == 'url' }}">상품 URL 가격 추적</a>
+  </div>
+
+  {% if tab != 'url' %}
+  <form method="post" action="{{ url_for('watch_add') }}" class="form-grid">
+    <input type="hidden" name="kind" value="keyword">
+    {% if prefill %}<p class="hint full">선택한 딜: <b>{{ prefill }}</b><br>핵심 단어만 남기고 다듬으면 더 잘 잡힙니다.</p>{% endif %}
+    <label class="full">키워드 <span class="req">*</span>
+      <input class="input" name="keywords" value="{{ prefill_kw }}" required placeholder="예: 하기스 네이처메이드, 하기스 맥스드라이">
+      <small>공백 = 모두 포함(AND), 쉼표 = 그중 하나(OR)</small>
+    </label>
+    <label>제외어
+      <input class="input" name="exclude" placeholder="예: 중고 리퍼 1단계">
+      <small>하나라도 포함되면 제외</small>
+    </label>
+    <label>최대 가격(원)
+      <input class="input" name="max_price" inputmode="numeric" placeholder="예: 30000">
+      <small>비우면 가격 무관</small>
+    </label>
+    <label>카테고리
+      <select class="input" name="category">
+        <option value="">전체</option>
+        {% for c in categories %}<option>{{ c }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>이름
+      <input class="input" name="name" placeholder="비우면 키워드로 표시">
+    </label>
+    <div class="full"><button class="btn btn-primary" type="submit">감시 등록</button></div>
+  </form>
+  {% else %}
+  <form method="post" action="{{ url_for('watch_add') }}" class="form-grid">
+    <input type="hidden" name="kind" value="url">
+    <label class="full">상품 페이지 URL <span class="req">*</span>
+      <input class="input" name="url" type="url" required placeholder="https://prod.danawa.com/info/?pcode=...">
+      <small>다나와 상품 페이지(최저가)가 가장 안정적입니다. 쿠팡·G마켓·스마트스토어는 봇 차단으로 실패할 수 있습니다.</small>
+    </label>
+    <label>목표가(원)
+      <input class="input" name="target_price" inputmode="numeric" placeholder="이 가격 이하가 되면 알림">
+    </label>
+    <label>급락 알림(%)
+      <input class="input" name="drop_pct" inputmode="numeric" placeholder="예: 15 (직전 대비 15% 이상 하락)">
+    </label>
+    <label>이름
+      <input class="input" name="name" placeholder="비우면 페이지 제목">
+    </label>
+    <label>가격 CSS 선택자 (고급)
+      <input class="input" name="price_selector" placeholder="예: .total-price strong">
+      <small>자동 인식이 안 될 때만 입력</small>
+    </label>
+    <div class="full"><button class="btn btn-primary" type="submit">추적 시작</button></div>
+  </form>
+  {% endif %}
+</section>
+
+<section>
+  <h2 class="section-title">등록된 감시 <small class="muted">{{ watches | length }}개</small></h2>
+  {% if not watches %}<div class="empty">아직 등록된 감시가 없습니다.</div>{% endif %}
+  <div class="watch-list">
+  {% for w in watches %}
+    <div class="watch {{ '' if w.active else 'paused' }}">
+      <a class="watch-main" href="{{ url_for('watch_detail', wid=w.id) }}">
+        <span class="tag {{ 'kind-url' if w.kind == 'url' else 'kind-kw' }}">{{ 'URL' if w.kind == 'url' else '키워드' }}</span>
+        <b>{{ w.name or w.url }}</b>
+        <span class="muted small">
+          {% if w.kind == 'keyword' %}
+            {{ w.keywords }}{% if w.exclude %} · 제외: {{ w.exclude }}{% endif %}{% if w.max_price %} · {{ w.max_price | won }} 이하{% endif %}{% if w.category %} · {{ w.category }}{% endif %}
+          {% else %}
+            현재 {{ (w.current_price | won) or '-' }}{% if w.lowest_price %} · 최저 {{ w.lowest_price | won }}{% endif %}{% if w.target_price %} · 목표 {{ w.target_price | won }}{% endif %}
+            {% if w.last_error %}<span class="err">· 오류</span>{% endif %}
+          {% endif %}
+        </span>
+      </a>
+      <span class="muted small">알림 {{ w.alert_count }}</span>
+      <form method="post" action="{{ url_for('watch_toggle', wid=w.id) }}">
+        <button class="btn btn-sm btn-ghost" type="submit">{{ '일시정지' if w.active else '재개' }}</button>
+      </form>
+    </div>
+  {% endfor %}
+  </div>
+</section>
+{% endblock %}

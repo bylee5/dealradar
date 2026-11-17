@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}알림 · DealRadar{% endblock %}
+{% block content %}
+<div class="detail-head">
+  <h1 class="page-title">알림</h1>
+  <div class="actions">
+    <form method="post" action="{{ url_for('alerts_read') }}"><button class="btn btn-sm">모두 읽음</button></form>
+    <form method="post" action="{{ url_for('alerts_clear') }}" onsubmit="return confirm('읽은 알림을 삭제할까요?')"><button class="btn btn-sm btn-ghost">읽은 알림 삭제</button></form>
+  </div>
+</div>
+
+{% if not alerts %}
+  <div class="empty">알림이 없습니다. <a href="{{ url_for('watches') }}">관심상품</a>을 등록해 보세요.</div>
+{% endif %}
+
+<div class="alert-list">
+{% for a in alerts %}
+  <div class="alert-item {{ 'unread' if not a.is_read }}">
+    <div class="alert-top">
+      {% if a.watch_id == 0 %}<span class="tag surge-tag">급할인</span>
+      {% elif a.watch_kind == 'url' %}<span class="tag kind-url">가격</span>
+      {% else %}<span class="tag kind-kw">키워드</span>{% endif %}
+      {% if a.watch_name %}<a class="muted small" href="{{ url_for('watch_detail', wid=a.watch_id) }}">{{ a.watch_name }}</a>{% endif %}
+      <span class="spacer"></span>
+      <span class="muted small" title="{{ a.created_at }}">{{ a.created_at | ago }}</span>
+    </div>
+    <a class="alert-title" href="{{ a.url }}" target="_blank" rel="noopener noreferrer">{{ a.title }}</a>
+    <div class="small">{% if a.price %}<b class="price">{{ a.price | won }}</b> · {% endif %}<span class="muted">{{ a.message }}</span></div>
+  </div>
+{% endfor %}
+</div>
+{% endblock %}

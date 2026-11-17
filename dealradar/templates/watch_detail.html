@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}{{ w.name }} · DealRadar{% endblock %}
+{% block content %}
+<p><a class="muted" href="{{ url_for('watches') }}">‹ 관심상품</a></p>
+<div class="detail-head">
+  <h1 class="page-title">{{ w.name or w.url }} {% if not w.active %}<span class="tag ended">일시정지</span>{% endif %}</h1>
+  <div class="actions">
+    {% if w.kind == 'url' %}
+    <form method="post" action="{{ url_for('watch_check', wid=w.id) }}"><button class="btn btn-sm">지금 가격 확인</button></form>
+    {% endif %}
+    <form method="post" action="{{ url_for('watch_toggle', wid=w.id) }}"><button class="btn btn-sm btn-ghost">{{ '일시정지' if w.active else '재개' }}</button></form>
+    <form method="post" action="{{ url_for('watch_delete', wid=w.id) }}" onsubmit="return confirm('삭제할까요?')"><button class="btn btn-sm btn-danger">삭제</button></form>
+  </div>
+</div>
+
+{% if w.kind == 'url' %}
+  <div class="stats">
+    <div class="stat"><span>현재가</span><b>{{ (w.current_price | won) or '-' }}</b></div>
+    <div class="stat"><span>추적 최저가</span><b>{{ (w.lowest_price | won) or '-' }}</b></div>
+    <div class="stat"><span>목표가</span><b>{{ (w.target_price | won) or '-' }}</b></div>
+    <div class="stat"><span>마지막 확인</span><b class="small">{{ (w.last_checked | ago) or '-' }}</b></div>
+  </div>
+  {% if w.last_error %}<div class="flash flash-error">마지막 오류: {{ w.last_error }}</div>{% endif %}
+  <p><a href="{{ w.url }}" target="_blank" rel="noopener noreferrer" class="small">{{ w.url }}</a></p>
+
+  {% if chart %}
+  <section class="card">
+    <h2 class="section-title">가격 추이</h2>
+    <svg class="chart" viewBox="0 0 {{ chart.w }} {{ chart.h }}" preserveAspectRatio="none" role="img" aria-label="가격 추이">
+      <text x="4" y="22" class="axis">{{ "{:,}".format(chart.hi) }}</text>
+      <text x="4" y="{{ chart.h - 8 }}" class="axis">{{ "{:,}".format(chart.lo) }}</text>
+      {% if chart.target_y %}
+        <line x1="28" x2="{{ chart.w - 28 }}" y1="{{ chart.target_y }}" y2="{{ chart.target_y }}" class="target-line"/>
+        <text x="{{ chart.w - 30 }}" y="{{ chart.target_y - 4 }}" text-anchor="end" class="axis target-label">목표가</text>
+      {% endif %}
+      <polyline points="{{ chart.points }}" class="line"/>
+      <circle cx="{{ chart.low.x }}" cy="{{ chart.low.y }}" r="4" class="dot-low"><title>최저 {{ chart.low.p }}원</title></circle>
+      <circle cx="{{ chart.last.x }}" cy="{{ chart.last.y }}" r="4" class="dot-last"><title>현재 {{ chart.last.p }}원</title></circle>
+    </svg>
+    <div class="chart-x muted small"><span>{{ chart.first_at }}</span><span>{{ chart.last_at }}</span></div>
+  </section>
+  {% endif %}
+{% endif %}
+
+<details class="card">
+  <summary>조건 수정</summary>
+  <form method="post" action="{{ url_for('watch_edit', wid=w.id) }}" class="form-grid">
+    <label>이름<input class="input" name="name" value="{{ w.name or '' }}"></label>
+    {% if w.kind == 'keyword' %}
+      <label class="full">키워드<input class="input" name="keywords" value="{{ w.keywords or '' }}"><small>공백 = AND, 쉼표 = OR</small></label>
+      <label>제외어<input class="input" name="exclude" value="{{ w.exclude or '' }}"></label>
+      <label>최대 가격(원)<input class="input" name="max_price" value="{{ w.max_price or '' }}"></label>
+      <label>카테고리
+        <select class="input" name="category">
+          <option value="">전체</option>
+          {% for c in categories %}<option {{ 'selected' if w.category == c }}>{{ c }}</option>{% endfor %}
+        </select>
+      </label>
+    {% else %}
+      <label class="full">URL<input class="input" name="url" value="{{ w.url or '' }}"></label>
+      <label>목표가(원)<input class="input" name="target_price" value="{{ w.target_price or '' }}"></label>
+      <label>급락 알림(%)<input class="input" name="drop_pct" value="{{ w.drop_pct or '' }}"></label>
+      <label>가격 CSS 선택자<input class="input" name="price_selector" value="{{ w.price_selector or '' }}"></label>
+    {% endif %}
+    <div class="full"><button class="btn btn-primary">저장</button></div>
+  </form>
+</details>
+
+{% if w.kind == 'keyword' %}
+<section>
+  <h2 class="section-title">일치하는 딜 <small class="muted">{{ deals | length }}건</small></h2>
+  {% if not deals %}<div class="empty">아직 일치하는 딜이 없습니다. 새 딜이 수집되면 알림을 보냅니다.</div>{% endif %}
+  <table class="table">
+    {% for d in deals %}
+    <tr class="{{ 'sold' if d.sold_out }}">
+      <td class="nowrap muted small">{{ d.posted_at | ago }}</td>
+      <td><span class="tag src-{{ d.source }}">{{ d.source | source_name }}</span></td>
+      <td class="grow"><a href="{{ d.url }}" target="_blank" rel="noopener noreferrer">{{ d.title }}</a>
+        {% if d.is_surge %}<span class="tag surge-tag">급할인</span>{% endif %}{% if d.sold_out %}<span class="tag ended">종료</span>{% endif %}</td>
+      <td class="nowrap price">{{ (d.price | won) or (d.price_text or '') }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</section>
+{% else %}
+<section>
+  <h2 class="section-title">최근 확인 기록</h2>
+  <table class="table">
+    {% for h in history %}
+      <tr><td class="muted small">{{ h.checked_at }}</td><td class="price">{{ h.price | won }}</td></tr>
+    {% else %}
+      <tr><td class="muted">기록 없음</td></tr>
+    {% endfor %}
+  </table>
+</section>
+{% endif %}
+
+{% if alerts %}
+<section>
+  <h2 class="section-title">이 감시의 알림</h2>
+  <ul class="alert-mini">
+    {% for a in alerts %}<li><span class="muted small">{{ a.created_at | ago }}</span> <a href="{{ a.url }}" target="_blank" rel="noopener noreferrer">{{ a.title }}</a> <span class="muted small">{{ a.message }}</span></li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endblock %}

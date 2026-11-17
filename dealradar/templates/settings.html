@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}설정 · DealRadar{% endblock %}
+{% block content %}
+<h1 class="page-title">설정</h1>
+
+<form method="post" class="card form-grid">
+  <h2 class="section-title full">수집</h2>
+  <div class="full">
+    <div class="source-grid">
+    {% for src in sources %}
+      {% set lg = logs.get(src.key) %}
+      <label class="source-item">
+        <input type="checkbox" name="enabled_sources" value="{{ src.key }}" {{ 'checked' if src.key in enabled }}>
+        <span><b>{{ src.name }}</b>
+          <span class="small muted">
+          {% if lg %}
+            {% if lg.last_error %}<span class="err">오류</span> · {{ lg.last_run | ago }}
+            {% else %}{{ lg.last_count }}건 · {{ lg.last_run | ago }}{% endif %}
+          {% else %}아직 수집 안 함{% endif %}
+          </span>
+          {% if lg and lg.last_error %}<span class="small err block">{{ lg.last_error[:120] }}</span>{% endif %}
+        </span>
+      </label>
+    {% endfor %}
+    </div>
+  </div>
+  <label>핫딜 수집 주기(분)<input class="input" name="crawl_interval_min" value="{{ s.crawl_interval_min }}"><small>너무 짧으면 사이트에서 차단될 수 있습니다 (권장 5분 이상)</small></label>
+  <label>URL 가격 확인 주기(분)<input class="input" name="url_check_interval_min" value="{{ s.url_check_interval_min }}"></label>
+
+  <h2 class="section-title full">급할인 판정 기준</h2>
+  <label>제목 할인율 ≥ (%)<input class="input" name="surge_discount_pct" value="{{ s.surge_discount_pct }}"></label>
+  <label>과거 같은 상품 대비 하락 ≥ (%)<input class="input" name="surge_history_drop_pct" value="{{ s.surge_history_drop_pct }}"><small>수집 이력이 쌓일수록 정확해집니다</small></label>
+  <label>추천수 ≥<input class="input" name="surge_recommend" value="{{ s.surge_recommend }}"></label>
+  <label>자동 알림 카테고리<input class="input" name="surge_notify_categories" value="{{ s.surge_notify_categories }}"><small>이 카테고리에 급할인이 뜨면 감시 등록 없이도 알림 (쉼표 구분)</small></label>
+  <p class="hint full">'역대가', '대란', '가격오류' 같은 키워드나 3곳 이상 커뮤니티 동시 등장도 급할인으로 표시됩니다.</p>
+
+  <h2 class="section-title full">외부 알림</h2>
+  <label>텔레그램 봇 토큰<input class="input" name="telegram_token" value="{{ s.telegram_token }}" placeholder="123456:ABC-..." autocomplete="off"></label>
+  <label>텔레그램 chat_id<input class="input" name="telegram_chat_id" value="{{ s.telegram_chat_id }}"></label>
+  <label class="full">Slack / Discord 웹훅 URL<input class="input" name="webhook_url" value="{{ s.webhook_url }}" placeholder="https://hooks.slack.com/... 또는 https://discord.com/api/webhooks/..."></label>
+  <div class="full row-gap">
+    <button class="btn btn-primary" type="submit">저장</button>
+  </div>
+</form>
+<form method="post" action="{{ url_for('settings_test_notify') }}" class="inline-form">
+  <button class="btn btn-sm btn-ghost">외부 알림 테스트 보내기</button>
+  <span class="muted small">저장 후 눌러 주세요.</span>
+</form>
+
+<form method="post" action="{{ url_for('settings_categories') }}" class="card" id="categories">
+  <h2 class="section-title">카테고리 키워드</h2>
+  <p class="hint">제목에 키워드가 포함되면 해당 카테고리로 분류됩니다. 위에 있는 카테고리가 우선합니다. 이름을 비우면 삭제됩니다.</p>
+  {% for name, kws in categories %}
+  <div class="cat-row">
+    <input class="input cat-name" name="cat_name" value="{{ name }}">
+    <textarea class="input" name="cat_keywords" rows="2">{{ kws | join(', ') }}</textarea>
+  </div>
+  {% endfor %}
+  <div class="cat-row">
+    <input class="input cat-name" name="new_name" placeholder="새 카테고리">
+    <textarea class="input" name="new_keywords" rows="2" placeholder="키워드1, 키워드2, ..."></textarea>
+  </div>
+  <button class="btn btn-primary" type="submit">저장하고 다시 분류</button>
+</form>
+{% endblock %}
